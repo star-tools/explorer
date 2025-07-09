@@ -1,7 +1,7 @@
 
 
 
-import JSZip from './../lib/jszip.js';
+import JSZip from '../lib/jszip.js';
 
 async function downloadModelWithTextures(modelUrl, texturesMap) {
   const zip = new JSZip();
