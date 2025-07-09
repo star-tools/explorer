@@ -11,7 +11,7 @@ html, body {
       margin: 0;
       padding: 0;
       font-family: 'Orbitron', sans-serif;
-      background: #0b0f14 url('./bg.jpg') center center / cover no-repeat;
+      background: #0b0f14 url('./../bg.jpg') center center / cover no-repeat;
       color: #ddd;
       display: flex;
       flex-direction: column;
