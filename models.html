@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>All Races Models Archive</title>
+
+    <link rel="icon" href="https://star-assets.github.io/buttons-png/arc.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./src/styles.css">
+
+    <!-- Optional SEO meta -->
+    <meta name="description" content="Preview of StarCraft II 3D model assets in the Star Craft 2 All Races Archive.">
+    <meta property="og:title" content="All Races Models Archive" />
+    <meta property="og:description" content="Browse and download StarCraft II 3D model files for modding." />
+    <meta property="og:image" content="https://star-assets.github.io/buttons-png/arc.png" />
+
+    <style>
+        .models-grid {
+        grid-template-columns: repeat(auto-fill, 200px);
+        }
+
+        .model-item {
+            background: #12181f;
+            border: 1px solid #00d8ff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 1em;
+            color: #00d8ff;
+            text-align: center;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .model-item a {
+            color: inherit;
+            text-decoration: none;
+            word-break: break-word;
+            display: block;
+        }
+
+        .model-item:hover {
+            background-color: #00d8ff;
+            color: #111;
+        }
+
+        glb-viewer{
+            min-height: 250px;
+        }
+
+        #model-preview {
+            position: fixed;
+            top: 50px;
+            left: 50px;
+            width: 450px;
+            height: 300px;
+            background: #1c3451;
+            border: 2px solid #00d8ff;
+            border-radius: 8px;
+            box-shadow: 0 0 30px #00d8ffaa;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            cursor: grab;
+        }
+
+        #glb-viewer.dragging {
+            cursor: grabbing;
+        }
+        glb-viewer:fullscreen {
+            border: 0 !important;
+        }
+
+    </style>
+    <base href="/assets/"/>
+</head>
+<body><header class="small-header">
+    <div class="logo-container">
+        <a href="./" style="display: flex; align-items: center; text-decoration: none;">
+            <img src="https://star-assets.github.io/buttons-png/arc.png" alt="SC2 All Races Logo" />
+            <h1>ALL Races Assets</h1>
+        </a>
+    </div>
+    <input type="search" id="icon-search" placeholder="Search model..." aria-label="Search icons" />
+    <button class="fullscreen-btn" id="fullscreen-toggle" title="Toggle Fullscreen">⤢</button>
+</header>
+<div class="main">
+
+    <article>
+        
+        <p>Preview and download StarCraft II 3D model files from the archive. <span id="icons-count"></span></p>
+
+        <div class="icons-grid" id="icons-grid">
+            <div id="preloader" class="grid-preloader" aria-label="Loading models" role="status" aria-live="polite">
+                <div class="spinner"></div>
+            </div>
+            <!-- models will be injected here -->
+        </div>
+
+    </article>
+    <glb-viewer id="model-preview" base-url="" style="display: none;width: 400px; height: 250px; border: 1px solid #00d8ff;"></glb-viewer>
+
+</div>
+
+<script type="module">
+    import {createItemList} from "./src/script.js"
+    import "./src/player.js"
+
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const modelList = createItemList({
+            list: 'models',
+            containerSelector: '.icons-grid',
+            searchInputSelector: '#icon-search',
+            renderItemFn: ({name, file, icon}) => {
+                const div = document.createElement('div');
+                div.className = 'icon-item';
+                
+
+                const filePathGLB = `https://star-assets.github.io/${file.replace(".dds",".glb")}`;
+                const filePathPNG = `https://star-assets.github.io/${icon}`;
+                div.innerHTML = `
+                    <a href="https://star-assets.github.io/models-all-races-glb/${name}.glb" target="_blank">
+                        <img src="${filePathPNG.toLowerCase()}" alt="${name}" loading="lazy">
+                    </a>
+                    <span class="tooltip">${name}</span>
+                    <span class="btn copy-btn" data-copy=${name}>⎘</span>
+                `
+
+                
+
+                return div;
+
+            },
+            onRendered: (list) => {
+                document.getElementById("icons-count").textContent = list.length + " icons found"
+                console.log('Icons rendered and filtered');
+                console.log('Models rendered and filtered');
+
+                const viewer = document.getElementById('model-preview');
+
+
+                // Delegate click on model links
+                document.body.addEventListener('click', e => {
+                    const target = e.target.closest('a');
+                    if (!target || !target.href.endsWith(".glb")) return;
+
+                    e.preventDefault();
+                    const modelFile = target.getAttribute('href');
+
+                    if (modelFile && viewer) {
+                        viewer.addEventListener('load', () => {
+                            viewer.style.display = "block"
+                        });
+                        viewer.setAttribute('model', modelFile);
+                        // Optionally scroll viewer into view:
+                        // viewer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
+
+                const previewer = document.getElementById('model-preview');
+                let isDragging = false;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                previewer.addEventListener('mousedown', (e) => {
+                    if(e.target !== previewer)return
+                    isDragging = true;
+                    offsetX = e.clientX - previewer.offsetLeft;
+                    offsetY = e.clientY - previewer.offsetTop;
+                    previewer.classList.add('dragging');
+                });
+
+                document.addEventListener('mouseup', (e) => {
+                    if(e.target !== previewer)return
+                    isDragging = false;
+                    previewer.classList.remove('dragging');
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if(e.target !== previewer)return
+                    if (!isDragging) return;
+                    previewer.style.left = (e.clientX - offsetX) + 'px';
+                    previewer.style.top = (e.clientY - offsetY) + 'px';
+                });
+
+
+            }
+        });
+        modelList.load();
+    });
+
+
+
+</script>
+
+<footer>
+     SC2 All Races Assets Archive
+    <div class="discord">
+        <a href="https://discord.gg/tR6958REu2" target="_blank" rel="noopener" title="All Races Discord">
+            <img src="./src/discord.svg" alt="Discord" class="discord-icon">
+        </a>
+    </div>
+</footer>
+</body>
+</html>

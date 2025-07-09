@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>SC2 All Races Assets – Portraits Archive</title>
+
+    <link rel="icon" href="https://star-assets.github.io/buttons-png/arc.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./src/styles.css">
+
+    <!-- Optional SEO meta -->
+    <meta name="description" content="Preview of StarCraft II icon assets in the SC2 All Races Archive.">
+    <meta property="og:title" content="SC2 All Races Portraits Archive" />
+    <meta property="og:description" content="Browse and download StarCraft II portraits for modding." />
+    <meta property="og:image" content="https://star-assets.github.io/buttons-png/arc.png" />
+    <base href="/assets/"/>
+</head>
+<body>
+<header class="small-header">
+    <div class="logo-container">
+        <a href="./" style="display: flex; align-items: center; text-decoration: none;">
+            <img src="https://star-assets.github.io/buttons-png/arc.png" alt="SC2 All Races Logo" />
+            <h1>ALL Races Assets</h1>
+        </a>
+    </div>
+    <input type="search" id="icon-search" placeholder="Search portraits..." aria-label="Search portraits" />
+    <button class="fullscreen-btn" id="fullscreen-toggle" title="Toggle Fullscreen">⤢</button>
+</header>
+<article>
+        
+    <p>Preview and download StarCraft II portraits from the archive. <span id="icons-count"></span></p>
+
+
+
+    <!--<div class="search-container">-->
+    <!--    <input type="text" id="icon-search" placeholder="Search icons by name..." autocomplete="off" />-->
+    <!--</div>-->
+    <div class="icons-grid portraits-grid" id="icons-grid">
+        <div id="preloader" class="grid-preloader" aria-label="Loading portraits" role="status" aria-live="polite">
+            <div class="spinner"></div>
+        </div>
+        <!-- icons will be injected here -->
+    </div>
+</article>
+
+
+
+<script type="module">
+    import {createItemList} from "./src/script.js"
+    document.addEventListener('DOMContentLoaded', () => {
+
+        function parseIniString(iniText) {
+  const result = {};
+  let currentSection = null;
+
+  const lines = iniText.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(';') || trimmed.startsWith('#')) continue;
+
+    const sectionMatch = trimmed.match(/^\[(.+?)\]$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1];
+      result[currentSection] = [];
+    } else if (currentSection) {
+      result[currentSection].push(trimmed);
+    }
+  }
+
+  return result;
+}
+
+
+
+        const iconList = createItemList({
+            list: 'portraits',
+            containerSelector: '.icons-grid',
+            searchInputSelector: '#icon-search',
+            renderItemFn: ({file, icon, name}) => {
+                const div = document.createElement('div');
+                div.className = 'icon-item';
+                const filePath = `https://star-assets.github.io/${file}`;
+                const filePathPNG = `https://star-assets.github.io/${icon}`;
+                div.innerHTML = `
+                    <a href="${filePath}" target="_blank">
+                        <img src="${filePathPNG}" alt="${name}" loading="lazy">
+                    </a>
+                    <span class="tooltip">${name}</span>
+                    <span class="btn copy-btn" data-copy=${name}>⎘</span>
+                `;
+                return div;
+            },
+            onRendered: (list) => {
+                document.getElementById("icons-count").textContent = list.length + " icons found"
+                console.log('Icons rendered and filtered');
+            }
+        });
+        iconList.load();
+    });
+</script>
+
+
+<footer>
+     SC2 All Races Assets Archive
+    <div class="discord">
+        <a href="https://discord.gg/tR6958REu2" target="_blank" rel="noopener" title="All Races Discord">
+            <img src="./src/discord.svg" alt="Discord" class="discord-icon">
+        </a>
+    </div>
+</footer>
+
+</body>
+</html>
