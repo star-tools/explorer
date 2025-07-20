@@ -146,9 +146,8 @@ class GlbViewer extends HTMLElement {
     this.scene.children = this.scene.children.filter(obj => obj.type === 'AmbientLight' || obj.type === 'DirectionalLight');
 
     const url = this.baseUrl ? this.baseUrl.replace(/\/$/, '') + '/' + this.model : this.model;
-    this.shadowRoot.getElementById('download-btn')
-      .setAttribute("href",url)
-      .setAttribute("data-download",url)
+    this.shadowRoot.getElementById('download-btn').setAttribute("href",url)
+      this.shadowRoot.getElementById('download-btn').setAttribute("data-download",url)
 
     this.loader.load(
       url,

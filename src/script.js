@@ -1,9 +1,13 @@
-
-
-
+// Import JSZip for ZIP operations
 import JSZip from '../lib/jszip.js';
 
-async function downloadModelWithTextures(modelUrl, texturesMap) {
+/**
+ * Downloads a StarCraft 2 model along with its textures into a ZIP file.
+ * - Extracts .dds texture names from the model binary.
+ * - Matches them with provided texture repositories.
+ * - Downloads textures and packs them with the model.
+ */
+export async function downloadModelWithTextures(modelUrl, texturesMap) {
   const zip = new JSZip();
 
   // 1. Fetch model as binary
@@ -11,20 +15,19 @@ async function downloadModelWithTextures(modelUrl, texturesMap) {
   if (!modelResp.ok) throw new Error("Failed to fetch model");
   const modelBuffer = await modelResp.arrayBuffer();
 
-  // 2. Search for .dds strings in binary
+  // 2. Extract .dds texture names from model binary
   const modelText = bufferToAscii(modelBuffer);
-  const ddsRegex = /([\w\-\/\\]+\.(?:dds))/gi;
+  const ddsRegex = /([\w\-/\\]+\.(?:dds))/gi;
   const foundTextures = [...modelText.matchAll(ddsRegex)]
     .map(m => m[1].replace(/\\/g, '/').split('/').pop().toLowerCase());
 
-  // Remove duplicates
   const uniqueTextures = [...new Set(foundTextures)];
 
   // 3. Add model to zip
   const modelName = modelUrl.split('/').pop();
   zip.file(modelName, modelBuffer);
 
-  // 4. Download each matching texture
+  // 4. Download matching textures
   for (const texName of uniqueTextures) {
     const repo = texturesMap[texName];
     if (!repo) {
@@ -41,34 +44,31 @@ async function downloadModelWithTextures(modelUrl, texturesMap) {
     }
   }
 
-  // 5. Zip and download
+  // 5. Generate ZIP and trigger download
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   triggerDownload(zipBlob, modelName.replace(/\.m3$/, '') + '_with_textures.zip');
 }
 
-// Helper: Convert ArrayBuffer to ASCII string (partial decoding)
+/**
+ * Converts an ArrayBuffer to an ASCII string (non-printable bytes replaced with spaces).
+ */
 function bufferToAscii(buffer) {
   const view = new Uint8Array(buffer);
-  let ascii = '';
-  for (let i = 0; i < view.length; i++) {
-    const char = view[i];
-    if (char >= 32 && char <= 126) {
-      ascii += String.fromCharCode(char);
-    } else {
-      ascii += ' ';
-    }
-  }
-  return ascii;
+  return Array.from(view, char => (char >= 32 && char <= 126) ? String.fromCharCode(char) : ' ').join('');
 }
 
-// Helper: Fetch a binary file as Blob
+/**
+ * Fetches a binary file as Blob.
+ */
 async function fetchAsBlob(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${url}`);
-  return await res.blob();
+  return res.blob();
 }
 
-// Helper: Download a Blob as file
+/**
+ * Triggers a browser download of a Blob.
+ */
 function triggerDownload(blob, filename) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -79,10 +79,10 @@ function triggerDownload(blob, filename) {
   document.body.removeChild(a);
 }
 
-
-
-
-function parseIniString(iniText) {
+/**
+ * Parses INI text into an object: { sectionName: [lines...] }
+ */
+export function parseIniString(iniText) {
   const result = {};
   let currentSection = null;
 
@@ -103,31 +103,33 @@ function parseIniString(iniText) {
   return result;
 }
 
-function flattenRepoFiles(repoMap) {
-    const result = [];
-
-    for (const [repo, files] of Object.entries(repoMap)) {
-        for (const file of files) {
-        result.push({ file, repo });
-        }
-    }
-
-    return result;
+/**
+ * Flattens repo structure {repo: [files]} into array of {file, repo}
+ */
+export function flattenRepoFiles(repoMap) {
+  return Object.entries(repoMap).flatMap(([repo, files]) =>
+    files.map(file => ({ file, repo }))
+  );
 }
 
-async function loadIniFile(list){
-      const response = await fetch(`./list/${list}.ini`);
-      if (!response.ok) throw new Error(`Failed to load ${list}`);
-      const text = await response.text();
-      return parseIniString(text);
+/**
+ * Loads an INI file from ./list/{list}.ini and parses it.
+ */
+export async function loadIniFile(list) {
+  const response = await fetch(`./list/${list}.ini`);
+  if (!response.ok) throw new Error(`Failed to load ${list}`);
+  const text = await response.text();
+  return parseIniString(text);
 }
 
-function watchImages({ selector = 'img', onLoad = null, onError = null, fadeInClass = 'loaded' } = {}) {
+/**
+ * Watches images in the DOM and applies fade-in class when loaded.
+ */
+export function watchImages({ selector = 'img', onLoad = null, onError = null, fadeInClass = 'loaded' } = {}) {
   const images = document.querySelectorAll(selector);
 
   images.forEach(img => {
     if (img.complete && img.naturalWidth !== 0) {
-      // Already loaded
       img.classList.add(fadeInClass);
       onLoad?.(img);
     } else {
@@ -135,7 +137,6 @@ function watchImages({ selector = 'img', onLoad = null, onError = null, fadeInCl
         img.classList.add(fadeInClass);
         onLoad?.(img);
       });
-
       img.addEventListener('error', () => {
         img.classList.remove(fadeInClass);
         onError?.(img);
@@ -144,20 +145,10 @@ function watchImages({ selector = 'img', onLoad = null, onError = null, fadeInCl
   });
 }
 
-
-document.getElementById('fullscreen-toggle').addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    // Enter fullscreen
-    document.documentElement.requestFullscreen().catch(err => {
-      alert(`Error attempting to enable fullscreen: ${err.message}`);
-    });
-  } else {
-    // Exit fullscreen
-    document.exitFullscreen();
-  }
-});
-
-
+/**
+ * Creates an interactive item list with search, pagination, and lazy image handling.
+ * Fixes: Pagination now updates properly after search.
+ */
 export function createItemList({
   list,
   containerSelector,
@@ -172,15 +163,14 @@ export function createItemList({
   const paginationEl = document.createElement('div');
   paginationEl.className = 'pagination';
   container.after(paginationEl);
-let  totalPages
-  const renderedItems = []; // Store DOM + source item
-    let allItems = [];
-    let currentPage = 1;
-    let filteredItems = [];
 
-    let debounceTimer = null;
+  let allItems = [];
+  let filteredItems = [];
+  let currentPage = 1;
 
-    async function load() {
+  let debounceTimer = null;
+
+  async function load() {
     const preloader = document.getElementById('preloader');
     if (preloader) preloader.style.display = 'flex';
 
@@ -193,18 +183,11 @@ let  totalPages
       const ddsList = flattenRepoFiles(ddsFiles);
       const pngList = flattenRepoFiles(pngFiles);
 
-      // Create index objects (key = lowercase file name)
-      const ddsIndex = Object.create(null);
-      for (const { file, repo } of ddsList) {
-        ddsIndex[file.toLowerCase()] = { file, repo };
-      }
+      // Index for quick lookup
+      const ddsIndex = Object.fromEntries(ddsList.map(({ file, repo }) => [file.toLowerCase(), { file, repo }]));
+      const pngIndex = Object.fromEntries(pngList.map(({ file, repo }) => [file.toLowerCase(), { file, repo }]));
 
-      const pngIndex = Object.create(null);
-      for (const { file, repo } of pngList) {
-        pngIndex[file.toLowerCase()] = { file, repo };
-      }
-
-      // Merge matched files from pngIndex and ddsIndex
+      // Merge lists by filename
       allItems = Object.keys(ddsIndex).map(key => {
         const dds = ddsIndex[key];
         const png = pngIndex[key];
@@ -218,8 +201,8 @@ let  totalPages
       }).filter(Boolean);
 
       filteredItems = allItems;
-    totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-      renderPage(currentPage,totalPages);
+
+      renderPage(1);
       attachSearch();
     } catch (e) {
       console.error('Error loading items:', e);
@@ -228,123 +211,74 @@ let  totalPages
     }
   }
 
-
-
   function renderPage(page) {
     container.innerHTML = '';
-    renderedItems.length = 0;
+    currentPage = page;
 
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
     const start = (page - 1) * itemsPerPage;
     const end = page * itemsPerPage;
     const pageItems = filteredItems.slice(start, end);
 
     const fragment = document.createDocumentFragment();
     for (const item of pageItems) {
-      const el = renderItemFn(item);
-      renderedItems.push({ el, item });
-      fragment.appendChild(el);
+      fragment.appendChild(renderItemFn(item));
     }
 
     container.appendChild(fragment);
-    renderPaginationControls(currentPage, totalPages, newPage => {
-      currentPage = newPage;
-      renderPage(currentPage);
-    });
-
-
+    renderPaginationControls(currentPage, totalPages);
 
     watchImages({
       selector: '.icons-grid img',
       onError: img => console.warn('Failed to load:', img.src)
     });
 
-    if (typeof onRendered === 'function') {
-      onRendered(pageItems,filteredItems,allItems);
-
-      document.getElementById("icons-count").textContent = filteredItems.length + " / " + allItems.length + " icons" 
+    if (onRendered) {
+      onRendered(pageItems, filteredItems, allItems);
+      document.getElementById("icons-count").textContent = `${filteredItems.length} / ${allItems.length} icons`;
     }
   }
 
-  // function renderPaginationControls() {
-  //   paginationEl.innerHTML = '';
+  function renderPaginationControls(current, total) {
+    paginationEl.innerHTML = '';
 
-  //   if (totalPages <= 1) return;
+    const createBtn = (label, page, disabled = false, active = false) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.disabled = disabled;
+      if (active) btn.className = 'active';
+      btn.onclick = () => renderPage(page);
+      return btn;
+    };
 
-  //   const prev = document.createElement('button');
-  //   prev.textContent = 'Previous';
-  //   prev.disabled = currentPage === 1;
-  //   prev.addEventListener('click', () => {
-  //     if (currentPage > 1) {
-  //       currentPage--;
-  //       renderPage(currentPage);
-  //     }
-  //   });
+    paginationEl.appendChild(createBtn('<', current - 1, current === 1));
 
-  //   const next = document.createElement('button');
-  //   next.textContent = 'Next';
-  //   next.disabled = currentPage === totalPages;
-  //   next.addEventListener('click', () => {
-  //     if (currentPage < totalPages) {
-  //       currentPage++;
-  //       renderPage(currentPage);
-  //     }
-  //   });
-
-  //   const info = document.createElement('span');
-  //   info.textContent = `Page ${currentPage} of ${totalPages}`;
-
-  //   paginationEl.append(prev, info, next);
-  // }
-
-  function renderPaginationControls(currentPage, totalPages, onPageChange) {
-    
-  paginationEl.innerHTML = '';
-
-  function createPageButton(label, page, disabled = false, isActive = false) {
-    const btn = document.createElement('button');
-    btn.textContent = label;
-    btn.disabled = disabled;
-    btn.className = isActive ? 'active' : '';
-    if (!disabled && !isActive) {
-      btn.addEventListener('click', () => onPageChange(page));
-    }
-    return btn;
-  }
-
-  // "<" Prev button
-  paginationEl.appendChild(createPageButton('<', currentPage - 1, currentPage === 1));
-
-  const pageRange = [];
-
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pageRange.push(i);
-  } else {
-    if (currentPage <= 4) {
-      pageRange.push(...[1, 2, 3, 4, 5, '...', totalPages]);
-    } else if (currentPage >= totalPages - 3) {
-      pageRange.push(1, '...', ...[totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]);
+    const pages = [];
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) pages.push(i);
     } else {
-      pageRange.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      if (current <= 4) {
+        pages.push(...[1,2,3,4,5,'...',total]);
+      } else if (current >= total - 3) {
+        pages.push(1,'...', total-4, total-3, total-2, total-1, total);
+      } else {
+        pages.push(1,'...', current-1, current, current+1, '...', total);
+      }
     }
+
+    pages.forEach(p => {
+      if (p === '...') {
+        const span = document.createElement('span');
+        span.textContent = '...';
+        span.className = 'ellipsis';
+        paginationEl.appendChild(span);
+      } else {
+        paginationEl.appendChild(createBtn(p, p, false, p === current));
+      }
+    });
+
+    paginationEl.appendChild(createBtn('>', current + 1, current === total));
   }
-
-  for (const p of pageRange) {
-    if (p === '...') {
-      const ellipsis = document.createElement('span');
-      ellipsis.textContent = '...';
-      ellipsis.className = 'ellipsis';
-      paginationEl.appendChild(ellipsis);
-    } else {
-      paginationEl.appendChild(createPageButton(p, p, false, p === currentPage));
-    }
-  }
-
-  // ">" Next button
-  paginationEl.appendChild(createPageButton('>', currentPage + 1, currentPage === totalPages));
-}
-
-
-
 
   function attachSearch() {
     if (!searchInput) return;
@@ -353,38 +287,24 @@ let  totalPages
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         const query = searchInput.value.trim().toLowerCase();
-
-        filteredItems = allItems.filter(item =>
-          item.name.toLowerCase().includes(query)
-        );
-
-        currentPage = 1;
-        renderPage(currentPage);
+        filteredItems = allItems.filter(item => item.name.toLowerCase().includes(query));
+        renderPage(1); // Always reset to page 1 on search
       }, debounceDelay);
     });
   }
 
-
-
-document.addEventListener('click', function(event) {
-    const codeEl = event.target.closest('[data-copy]');
-    if (codeEl) {
-    const text = codeEl.getAttribute("data-copy");
-    navigator.clipboard.writeText(text)
+  // Clipboard copy handler for [data-copy]
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-copy]');
+    if (el) {
+      navigator.clipboard.writeText(el.getAttribute('data-copy'))
         .then(() => {
-        // Show copied notification
-        codeEl.classList.add('copied');
-
-        // Remove 'copied' status after 1 second
-        setTimeout(() => codeEl.classList.remove('copied'), 1000);
+          el.classList.add('copied');
+          setTimeout(() => el.classList.remove('copied'), 1000);
         })
-        .catch(err => {
-        console.error('Failed to copy:', err);
-        });
+        .catch(err => console.error('Clipboard error:', err));
     }
-});
-
+  });
 
   return { load };
 }
-
